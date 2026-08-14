@@ -23,7 +23,7 @@ export async function startVoiceLoop(rt: JarvisRuntime): Promise<void> {
   rt.voiceAbort = new AbortController();
   rt.running = true;
   const vad = new RmsVad({
-    threshold: 700,
+    threshold: rt.jarvis.vadThreshold,
     silenceMs: 1200,
     minSpeechMs: 280,
     sampleRate: MIC_SAMPLE_RATE,
@@ -42,6 +42,7 @@ export async function startVoiceLoop(rt: JarvisRuntime): Promise<void> {
         }
       },
       (err) => rt.logger.warn(`Jarvis mic: ${err.message}`),
+      rt.jarvis.micDevice || undefined,
     );
     rt.logger.info("Jarvis voice loop started");
   } catch (err) {

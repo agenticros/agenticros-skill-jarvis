@@ -1,6 +1,6 @@
 {
   "name": "@agenticros/jarvis",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Voice assistant for AgenticROS robots — wake word, speech I/O, OpenClaw agent, and RealSense presence greetings.",
   "keywords": [

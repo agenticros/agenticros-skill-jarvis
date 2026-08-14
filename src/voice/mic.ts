@@ -17,12 +17,12 @@ function which(cmd: string): string | null {
   return null;
 }
 
-export function findMicCommand(): { cmd: string; args: string[] } | null {
+export function findMicCommand(device?: string): { cmd: string; args: string[] } | null {
   const arecord = which("arecord");
   if (arecord) {
-    const device = process.env.JARVIS_MIC_DEVICE;
+    const resolvedDevice = device || process.env.JARVIS_MIC_DEVICE;
     const args = ["-f", "S16_LE", "-r", String(MIC_SAMPLE_RATE), "-c", "1", "-t", "raw"];
-    if (device) args.push("-D", device);
+    if (resolvedDevice) args.push("-D", resolvedDevice);
     args.push("-");
     return { cmd: arecord, args };
   }
@@ -46,8 +46,9 @@ export function findMicCommand(): { cmd: string; args: string[] } | null {
 export function startMic(
   onChunk: (pcm: Buffer) => void,
   onError: (err: Error) => void,
+  device?: string,
 ): ChildProcess {
-  const spec = findMicCommand();
+  const spec = findMicCommand(device);
   if (!spec) {
     throw new Error("No microphone capture command found (install arecord or sox)");
   }

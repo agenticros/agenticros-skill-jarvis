@@ -40,6 +40,7 @@ export interface JarvisConfig {
   ttsVoice: string;
   ttsCommand: string;
   micDevice: string;
+  vadThreshold: number;
   greetOnPresence: boolean;
   presenceIntervalMs: number;
   initiative: number;
@@ -81,6 +82,7 @@ const DEFAULTS: Omit<JarvisConfig, "wakeWords"> = {
   ttsVoice: "am_fenrir",
   ttsCommand: "espeak",
   micDevice: "",
+  vadThreshold: 700,
   greetOnPresence: true,
   presenceIntervalMs: 4000,
   initiative: 0.4,
@@ -197,6 +199,7 @@ export function getJarvisConfig(config: AgenticROSConfig): JarvisConfig {
     ttsVoice: str(c.ttsVoice, DEFAULTS.ttsVoice),
     ttsCommand: str(c.ttsCommand, DEFAULTS.ttsCommand),
     micDevice: str(c.micDevice, DEFAULTS.micDevice),
+    vadThreshold: num(c.vadThreshold, DEFAULTS.vadThreshold),
     greetOnPresence: bool(c.greetOnPresence, DEFAULTS.greetOnPresence),
     presenceIntervalMs: num(c.presenceIntervalMs, DEFAULTS.presenceIntervalMs),
     initiative: num(c.initiative, DEFAULTS.initiative),
