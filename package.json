@@ -1,0 +1,85 @@
+{
+  "name": "@agenticros/jarvis",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Voice assistant for AgenticROS robots — wake word, speech I/O, OpenClaw agent, and RealSense presence greetings.",
+  "keywords": [
+    "agenticros",
+    "jarvis",
+    "voice",
+    "speech",
+    "tts",
+    "stt",
+    "wake-word",
+    "kokoro",
+    "openclaw"
+  ],
+  "homepage": "https://github.com/agenticros/agenticros-skill-jarvis#readme",
+  "bugs": {
+    "url": "https://github.com/agenticros/agenticros-skill-jarvis/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agenticros/agenticros-skill-jarvis.git"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "soul.md",
+    "demo.md",
+    "docs"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "dev": "npx agenticros skills dev"
+  },
+  "agenticros": {
+    "id": "jarvis",
+    "displayName": "Jarvis",
+    "description": "Conversational voice front-end for AgenticROS: Hey Jarvis wake word, Kokoro TTS, RealSense presence greetings, and OpenClaw tool use for seeing, scanning, and following.",
+    "categories": [
+      "audio",
+      "communication",
+      "human-interaction"
+    ],
+    "screenshots": [
+      "docs/icon.png"
+    ],
+    "capabilities": [
+      {
+        "id": "jarvis_listen",
+        "verb": "listen",
+        "description": "Start or stop the always-on voice loop (microphone, wake word, TTS).",
+        "interruptible": true,
+        "blocks_base": false,
+        "tool": "jarvis_control"
+      },
+      {
+        "id": "jarvis_speak",
+        "verb": "speak",
+        "description": "Speak a line of text through Kokoro TTS (espeak fallback).",
+        "interruptible": true,
+        "blocks_base": false,
+        "tool": "jarvis_speak"
+      }
+    ]
+  },
+  "dependencies": {
+    "@agenticros/core": "^0.8.0",
+    "@sinclair/typebox": "^0.34.0",
+    "kokoro-js": "^1.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "typescript": "^5.7.0"
+  },
+  "author": "AgenticROS",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  }
+}

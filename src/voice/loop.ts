@@ -1,0 +1,133 @@
+/**
+ * Always-on listen loop: mic → VAD → STT → wake gate → agent → TTS.
+ */
+
+import type { ChildProcess } from "node:child_process";
+import { askOpenClaw } from "../agent/openclaw.js";
+import { askDirectLlm } from "../agent/llm.js";
+import { inConversationWindow, type JarvisRuntime } from "../runtime.js";
+import { MIC_SAMPLE_RATE, startMic } from "./mic.js";
+import { speak } from "./tts.js";
+import { RmsVad } from "./vad.js";
+import { isMuteCommand, isNevermind, isUnmuteCommand, isWake, stripWakePhrase } from "./wake.js";
+
+let micProc: ChildProcess | null = null;
+let handling = false;
+
+export function isVoiceLoopRunning(rt: JarvisRuntime): boolean {
+  return rt.running;
+}
+
+export async function startVoiceLoop(rt: JarvisRuntime): Promise<void> {
+  if (rt.running) return;
+  rt.voiceAbort = new AbortController();
+  rt.running = true;
+  const vad = new RmsVad({
+    threshold: 700,
+    silenceMs: 1200,
+    minSpeechMs: 280,
+    sampleRate: MIC_SAMPLE_RATE,
+  });
+
+  try {
+    micProc = startMic(
+      (chunk) => {
+        if (!rt.running || rt.speaking) return;
+        const utterance = vad.process(chunk);
+        if (utterance && !handling) {
+          handling = true;
+          void handleUtterance(rt, utterance).finally(() => {
+            handling = false;
+          });
+        }
+      },
+      (err) => rt.logger.warn(`Jarvis mic: ${err.message}`),
+    );
+    rt.logger.info("Jarvis voice loop started");
+  } catch (err) {
+    rt.running = false;
+    rt.logger.error(`Jarvis: could not start microphone: ${String(err)}`);
+    throw err;
+  }
+}
+
+export async function stopVoiceLoop(rt: JarvisRuntime): Promise<void> {
+  rt.running = false;
+  rt.voiceAbort?.abort();
+  rt.voiceAbort = null;
+  if (micProc) {
+    micProc.kill("SIGTERM");
+    micProc = null;
+  }
+  rt.logger.info("Jarvis voice loop stopped");
+}
+
+async function handleUtterance(rt: JarvisRuntime, pcm: Buffer): Promise<void> {
+  let heard = "";
+  try {
+    heard = await transcribeSafe(rt, pcm);
+  } catch (err) {
+    rt.logger.warn(`Jarvis STT: ${String(err).slice(0, 200)}`);
+    return;
+  }
+  if (!heard) return;
+  rt.logger.info(`Jarvis heard: ${heard}`);
+
+  if (rt.muted) {
+    if (isUnmuteCommand(heard, rt.jarvis)) {
+      rt.muted = false;
+      rt.logger.info("Jarvis unmuted");
+    }
+    return;
+  }
+
+  if (isMuteCommand(heard, rt.jarvis)) {
+    rt.muted = true;
+    await say(rt, "Going quiet.");
+    return;
+  }
+  if (isNevermind(heard, rt.jarvis)) {
+    rt.lastResponseAt = 0;
+    return;
+  }
+
+  const awake = isWake(heard, rt.jarvis) || inConversationWindow(rt);
+  if (!awake) return;
+
+  const utterance = stripWakePhrase(heard, rt.jarvis) || heard;
+  if (!utterance || utterance.length < 2) {
+    await say(rt, "Yes?");
+    return;
+  }
+
+  try {
+    const reply = await think(rt, utterance);
+    await say(rt, reply);
+  } catch (err) {
+    rt.logger.error(`Jarvis think: ${String(err).slice(0, 240)}`);
+    await say(rt, "Sorry, I had trouble with that.");
+  }
+}
+
+async function transcribeSafe(rt: JarvisRuntime, pcm: Buffer): Promise<string> {
+  const { transcribe } = await import("./stt.js");
+  return transcribe(pcm, rt.jarvis, rt.voiceAbort?.signal);
+}
+
+async function think(rt: JarvisRuntime, utterance: string): Promise<string> {
+  if (rt.jarvis.agentBackend === "openclaw") {
+    return askOpenClaw(utterance, rt.jarvis, rt.logger, rt.voiceAbort?.signal);
+  }
+  return askDirectLlm(utterance, rt, rt.voiceAbort?.signal);
+}
+
+export async function say(rt: JarvisRuntime, text: string): Promise<void> {
+  if (!text.trim()) return;
+  rt.speaking = true;
+  try {
+    await speak(text, rt.jarvis, rt.logger, rt.voiceAbort?.signal);
+    rt.lastResponseAt = Date.now();
+  } finally {
+    rt.speaking = false;
+  }
+}

@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# ROS 2 / colcon build artifacts — generated locally, never commit.
+build/
+install/
+log/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo
