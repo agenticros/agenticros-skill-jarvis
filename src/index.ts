@@ -36,8 +36,8 @@ export function registerSkill(
       },
     });
   } else if (jarvis.autoStart) {
-    setImmediate(() => {
-      void startJarvis(runtime);
-    });
+    api.logger.warn(
+      "Jarvis: OpenClaw registerService is unavailable; start with jarvis_control action start",
+    );
   }
 }
