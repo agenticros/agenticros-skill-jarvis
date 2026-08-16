@@ -7,7 +7,7 @@
 import type { AgenticROSConfig } from "@agenticros/core";
 import type { SkillPluginApi, SkillContext } from "./types.js";
 import { getJarvisConfig } from "./config.js";
-import { initRuntime } from "./runtime.js";
+import { initRuntime, tryGetRuntime } from "./runtime.js";
 import { registerJarvisControlTool, registerJarvisSpeakTool } from "./tools/jarvis-control.js";
 import { startJarvis, stopJarvis } from "./lifecycle.js";
 
@@ -17,6 +17,20 @@ export function registerSkill(
   context: SkillContext,
 ): void {
   const jarvis = getJarvisConfig(config);
+
+  // If the gateway re-registers this plugin within the same process (e.g. a
+  // config reload) without restarting, initRuntime() below replaces the
+  // module-level runtime singleton. Anything still running against the old
+  // one (mic capture, presence timer) would become unreachable and leak
+  // forever, since getRuntime()/tryGetRuntime() only ever see the newest
+  // instance. Stop the previous instance first so its resources are freed.
+  const previous = tryGetRuntime();
+  if (previous) {
+    void stopJarvis(previous).catch((e) =>
+      api.logger.warn(`Jarvis: failed to stop previous runtime on re-register: ${String(e)}`),
+    );
+  }
+
   const runtime = initRuntime(config, jarvis, context);
   api.logger.info(
     `Jarvis skill loaded (name=${jarvis.name}, wake=${jarvis.wakeWords[1] ?? `hey ${jarvis.name.toLowerCase()}`}, backend=${jarvis.agentBackend})`,

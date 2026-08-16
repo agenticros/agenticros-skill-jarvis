@@ -21,6 +21,13 @@ export function isVoiceLoopRunning(rt: JarvisRuntime): boolean {
 
 export async function startVoiceLoop(rt: JarvisRuntime): Promise<void> {
   if (rt.running) return;
+  if (micProc) {
+    // Defensive: a mic process from a runtime we no longer hold a reference
+    // to (e.g. a previous instance that wasn't stopped cleanly) would
+    // otherwise be silently replaced here and leak forever.
+    micProc.kill("SIGTERM");
+    micProc = null;
+  }
   rt.voiceAbort = new AbortController();
   rt.running = true;
   const vad = new RmsVad({
