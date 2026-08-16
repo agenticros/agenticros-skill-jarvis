@@ -3,6 +3,7 @@
  */
 
 import type { AgenticROSConfig } from "@agenticros/core";
+import type { BackoffState } from "./backoff.js";
 import type { JarvisConfig } from "./config.js";
 import type { SkillContext, SkillLogger } from "./types.js";
 
@@ -23,6 +24,8 @@ export interface JarvisRuntime {
   lastSeenAt: number;
   lastLostAt: number;
   personPresent: boolean;
+  presenceBackoff: BackoffState;
+  sttBackoff: BackoffState;
 }
 
 let runtime: JarvisRuntime | null = null;
@@ -49,6 +52,8 @@ export function initRuntime(
     lastSeenAt: 0,
     lastLostAt: 0,
     personPresent: false,
+    presenceBackoff: { failures: 0, backoffUntil: 0 },
+    sttBackoff: { failures: 0, backoffUntil: 0 },
   };
   return runtime;
 }

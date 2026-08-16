@@ -84,7 +84,7 @@ const DEFAULTS: Omit<JarvisConfig, "wakeWords"> = {
   micDevice: "",
   vadThreshold: 700,
   greetOnPresence: true,
-  presenceIntervalMs: 4000,
+  presenceIntervalMs: 15_000,
   initiative: 0.4,
   cameraTopic: "",
   cameraMessageType: "CompressedImage",

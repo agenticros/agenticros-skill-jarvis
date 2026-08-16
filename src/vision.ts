@@ -134,6 +134,7 @@ export async function callOpenAIVision(
   prompt: string,
   timeoutMs: number,
   baseUrl?: string,
+  detail?: "low" | "high" | "auto",
 ): Promise<string> {
   const root = (baseUrl ?? "https://api.openai.com/v1").replace(/\/$/, "");
   const controller = new AbortController();
@@ -155,7 +156,10 @@ export async function callOpenAIVision(
               { type: "text", text: prompt },
               {
                 type: "image_url",
-                image_url: { url: `data:${snapshot.mimeType};base64,${snapshot.base64}` },
+                image_url: {
+                  url: `data:${snapshot.mimeType};base64,${snapshot.base64}`,
+                  ...(detail ? { detail } : {}),
+                },
               },
             ],
           },

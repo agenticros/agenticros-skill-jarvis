@@ -3,6 +3,7 @@
  */
 
 import { resolveCameraSubscribeTopic } from "@agenticros/core";
+import { isBackingOff, recordFailure, recordSuccess } from "../backoff.js";
 import { resolveCameraTopic } from "../config.js";
 import { openaiBaseUrl, resolveOpenAiKey } from "../keys.js";
 import type { JarvisRuntime } from "../runtime.js";
@@ -37,11 +38,20 @@ export function stopPresenceLoop(rt: JarvisRuntime): void {
 
 async function presenceTick(rt: JarvisRuntime): Promise<void> {
   if (rt.muted || rt.speaking) return;
+  if (isBackingOff(rt.presenceBackoff)) return;
   let human = false;
   try {
     human = await detectPerson(rt);
+    recordSuccess(rt.presenceBackoff);
   } catch (err) {
-    rt.logger.warn(`Jarvis presence: ${String(err).slice(0, 160)}`);
+    const backoffMs = recordFailure(rt.presenceBackoff);
+    if (backoffMs > 0) {
+      rt.logger.warn(
+        `Jarvis presence: ${String(err).slice(0, 160)} — backing off ${Math.round(backoffMs / 1000)}s after ${rt.presenceBackoff.failures} consecutive failures`,
+      );
+    } else {
+      rt.logger.warn(`Jarvis presence: ${String(err).slice(0, 160)}`);
+    }
     return;
   }
   const now = Date.now();
@@ -88,6 +98,7 @@ async function detectPerson(rt: JarvisRuntime): Promise<boolean> {
       HUMAN_DETECTION_PROMPT,
       12_000,
       openaiBaseUrl(rt.jarvis),
+      "low",
     );
   }
   return parseHumanDetectionResponse(text).human;

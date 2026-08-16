@@ -5,6 +5,7 @@
 import type { ChildProcess } from "node:child_process";
 import { askOpenClaw } from "../agent/openclaw.js";
 import { askDirectLlm } from "../agent/llm.js";
+import { isBackingOff, recordFailure, recordSuccess } from "../backoff.js";
 import { inConversationWindow, type JarvisRuntime } from "../runtime.js";
 import { MIC_SAMPLE_RATE, startMic } from "./mic.js";
 import { speak } from "./tts.js";
@@ -64,11 +65,20 @@ export async function stopVoiceLoop(rt: JarvisRuntime): Promise<void> {
 }
 
 async function handleUtterance(rt: JarvisRuntime, pcm: Buffer): Promise<void> {
+  if (isBackingOff(rt.sttBackoff)) return;
   let heard = "";
   try {
     heard = await transcribeSafe(rt, pcm);
+    recordSuccess(rt.sttBackoff);
   } catch (err) {
-    rt.logger.warn(`Jarvis STT: ${String(err).slice(0, 200)}`);
+    const backoffMs = recordFailure(rt.sttBackoff);
+    if (backoffMs > 0) {
+      rt.logger.warn(
+        `Jarvis STT: ${String(err).slice(0, 200)} — backing off ${Math.round(backoffMs / 1000)}s after ${rt.sttBackoff.failures} consecutive failures`,
+      );
+    } else {
+      rt.logger.warn(`Jarvis STT: ${String(err).slice(0, 200)}`);
+    }
     return;
   }
   if (!heard) return;
