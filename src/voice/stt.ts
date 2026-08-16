@@ -61,8 +61,10 @@ async function transcribeWhisperCpp(
   const wavPath = join(dir, "speech.wav");
   await writeFile(wavPath, pcm16Wav(pcm));
   const bin = jarvis.sttCommand || "whisper-cli";
+  const args = ["-f", wavPath, "-nt", "-np"];
+  if (jarvis.sttModel && jarvis.sttModel !== "whisper-1") args.push("-m", jarvis.sttModel);
   try {
-    const text = await runCapture(bin, ["-f", wavPath, "-nt", "-np"], signal);
+    const text = await runCapture(bin, args, signal);
     return text.replace(/\[.*?\]/g, "").trim();
   } finally {
     await unlink(wavPath).catch(() => undefined);
