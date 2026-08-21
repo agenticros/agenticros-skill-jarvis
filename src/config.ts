@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import type { AgenticROSConfig } from "@agenticros/core";
 
 export type AgentBackend = "openclaw" | "openai" | "ollama";
+export type ChatBackend = "openai" | "ollama" | "off";
 export type SttProvider = "openai" | "whisper.cpp" | "openai-compat";
 export type TtsProvider = "kokoro" | "openai" | "espeak";
 export type CameraMessageType = "CompressedImage" | "Image";
@@ -25,6 +26,7 @@ export interface JarvisConfig {
   conversationWindowSec: number;
   autoStart: boolean;
   agentBackend: AgentBackend;
+  chatBackend: ChatBackend;
   openclawAgent: string;
   openaiApiKey: string;
   openaiBaseUrl: string;
@@ -41,6 +43,7 @@ export interface JarvisConfig {
   ttsCommand: string;
   micDevice: string;
   vadThreshold: number;
+  vadSilenceMs: number;
   greetOnPresence: boolean;
   presenceIntervalMs: number;
   initiative: number;
@@ -67,6 +70,7 @@ const DEFAULTS: Omit<JarvisConfig, "wakeWords"> = {
   conversationWindowSec: 60,
   autoStart: true,
   agentBackend: "openclaw",
+  chatBackend: "openai",
   openclawAgent: "main",
   openaiApiKey: "",
   openaiBaseUrl: "",
@@ -83,6 +87,7 @@ const DEFAULTS: Omit<JarvisConfig, "wakeWords"> = {
   ttsCommand: "espeak",
   micDevice: "",
   vadThreshold: 700,
+  vadSilenceMs: 800,
   greetOnPresence: true,
   presenceIntervalMs: 15_000,
   initiative: 0.4,
@@ -165,6 +170,9 @@ export function getJarvisConfig(config: AgenticROSConfig): JarvisConfig {
   const agentBackendRaw = str(c.agentBackend, DEFAULTS.agentBackend);
   const agentBackend: AgentBackend =
     agentBackendRaw === "openai" || agentBackendRaw === "ollama" ? agentBackendRaw : "openclaw";
+  const chatBackendRaw = str(c.chatBackend, DEFAULTS.chatBackend);
+  const chatBackend: ChatBackend =
+    chatBackendRaw === "ollama" || chatBackendRaw === "off" ? chatBackendRaw : "openai";
   const sttRaw = str(c.sttProvider, DEFAULTS.sttProvider);
   const sttProvider: SttProvider =
     sttRaw === "whisper.cpp" || sttRaw === "openai-compat" ? sttRaw : "openai";
@@ -184,6 +192,7 @@ export function getJarvisConfig(config: AgenticROSConfig): JarvisConfig {
     conversationWindowSec: num(c.conversationWindowSec, DEFAULTS.conversationWindowSec),
     autoStart: bool(c.autoStart, DEFAULTS.autoStart),
     agentBackend,
+    chatBackend,
     openclawAgent: str(c.openclawAgent, DEFAULTS.openclawAgent),
     openaiApiKey: str(c.openaiApiKey, DEFAULTS.openaiApiKey),
     openaiBaseUrl: str(c.openaiBaseUrl, DEFAULTS.openaiBaseUrl),
@@ -200,6 +209,7 @@ export function getJarvisConfig(config: AgenticROSConfig): JarvisConfig {
     ttsCommand: str(c.ttsCommand, DEFAULTS.ttsCommand),
     micDevice: str(c.micDevice, DEFAULTS.micDevice),
     vadThreshold: num(c.vadThreshold, DEFAULTS.vadThreshold),
+    vadSilenceMs: Math.max(200, num(c.vadSilenceMs, DEFAULTS.vadSilenceMs)),
     greetOnPresence: bool(c.greetOnPresence, DEFAULTS.greetOnPresence),
     presenceIntervalMs: num(c.presenceIntervalMs, DEFAULTS.presenceIntervalMs),
     initiative: num(c.initiative, DEFAULTS.initiative),

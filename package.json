@@ -1,6 +1,6 @@
 {
   "name": "@agenticros/jarvis",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "type": "module",
   "description": "Voice assistant for AgenticROS robots — wake word, speech I/O, OpenClaw agent, and RealSense presence greetings.",
   "keywords": [
@@ -40,7 +40,7 @@
   "agenticros": {
     "id": "jarvis",
     "displayName": "Jarvis",
-    "description": "Conversational voice front-end for AgenticROS: Hey Jarvis wake word, Kokoro TTS, RealSense presence greetings, and OpenClaw tool use for seeing, scanning, and following.",
+    "description": "Conversational voice front-end for AgenticROS: Hey Jarvis wake word, fast chat for everyday questions, Kokoro TTS, RealSense presence greetings, and OpenClaw for robot skills.",
     "categories": [
       "audio",
       "communication",

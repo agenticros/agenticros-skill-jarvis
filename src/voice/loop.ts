@@ -1,12 +1,13 @@
 /**
- * Always-on listen loop: mic → VAD → STT → wake gate → agent → TTS.
+ * Always-on listen loop: mic → VAD → STT → wake gate → fast chat or OpenClaw → TTS.
  */
 
 import type { ChildProcess } from "node:child_process";
 import { askOpenClaw } from "../agent/openclaw.js";
-import { askDirectLlm } from "../agent/llm.js";
+import { askDirectLlm, askFastChat } from "../agent/llm.js";
+import { looksLikeRobotRequest } from "../agent/route.js";
 import { isBackingOff, recordFailure, recordSuccess } from "../backoff.js";
-import { inConversationWindow, type JarvisRuntime } from "../runtime.js";
+import { inConversationWindow, rememberTurn, type JarvisRuntime } from "../runtime.js";
 import { MIC_SAMPLE_RATE, startMic } from "./mic.js";
 import { speak } from "./tts.js";
 import { RmsVad } from "./vad.js";
@@ -32,7 +33,7 @@ export async function startVoiceLoop(rt: JarvisRuntime): Promise<void> {
   rt.running = true;
   const vad = new RmsVad({
     threshold: rt.jarvis.vadThreshold,
-    silenceMs: 1200,
+    silenceMs: rt.jarvis.vadSilenceMs,
     minSpeechMs: 280,
     sampleRate: MIC_SAMPLE_RATE,
   });
@@ -133,10 +134,33 @@ async function transcribeSafe(rt: JarvisRuntime, pcm: Buffer): Promise<string> {
 }
 
 async function think(rt: JarvisRuntime, utterance: string): Promise<string> {
-  if (rt.jarvis.agentBackend === "openclaw") {
-    return askOpenClaw(utterance, rt.jarvis, rt.logger, rt.voiceAbort?.signal);
+  const signal = rt.voiceAbort?.signal;
+  if (rt.jarvis.agentBackend !== "openclaw") {
+    return rememberTurn(rt, utterance, await askDirectLlm(utterance, rt, signal));
   }
-  return askDirectLlm(utterance, rt, rt.voiceAbort?.signal);
+  if (rt.jarvis.chatBackend === "off") {
+    return rememberTurn(rt, utterance, await askOpenClaw(utterance, rt.jarvis, rt.logger, signal));
+  }
+  return rememberTurn(rt, utterance, await answerHybrid(rt, utterance, signal));
+}
+
+async function answerHybrid(
+  rt: JarvisRuntime,
+  utterance: string,
+  signal: AbortSignal | undefined,
+): Promise<string> {
+  if (looksLikeRobotRequest(utterance)) {
+    rt.logger.info("Jarvis route: robot (keyword)");
+    return askOpenClaw(utterance, rt.jarvis, rt.logger, signal);
+  }
+  try {
+    return await askFastChat(utterance, rt, signal);
+  } catch (err) {
+    rt.logger.warn(
+      `Jarvis fast chat failed (${String(err).slice(0, 160)}); using OpenClaw`,
+    );
+    return askOpenClaw(utterance, rt.jarvis, rt.logger, signal);
+  }
 }
 
 export async function say(rt: JarvisRuntime, text: string): Promise<void> {

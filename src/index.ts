@@ -33,7 +33,7 @@ export function registerSkill(
 
   const runtime = initRuntime(config, jarvis, context);
   api.logger.info(
-    `Jarvis skill loaded (name=${jarvis.name}, wake=${jarvis.wakeWords[1] ?? `hey ${jarvis.name.toLowerCase()}`}, backend=${jarvis.agentBackend})`,
+    `Jarvis skill loaded (name=${jarvis.name}, wake=${jarvis.wakeWords[1] ?? `hey ${jarvis.name.toLowerCase()}`}, backend=${jarvis.agentBackend}, chat=${jarvis.chatBackend})`,
   );
 
   registerJarvisControlTool(api);

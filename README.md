@@ -10,12 +10,12 @@ This is a **Node.js / TypeScript** skill (`registerSkill`), not a Python port of
 
 ## What it does
 
-- Always-on listen loop: mic → energy VAD → Whisper STT → wake-word gate → OpenClaw agent → Kokoro TTS
+- Always-on listen loop: mic → energy VAD → Whisper STT → wake-word gate → fast chat or OpenClaw agent → Kokoro TTS
 - Wake word defaults to **Hey Jarvis** (also `jarvis`, `hi jarvis`, `ok jarvis`)
 - 60-second conversation window after Jarvis speaks — no wake word needed for follow-ups
 - Mute with “go to sleep” / “that’s all”; unmute with the wake phrase or “wake up”
 - Presence greetings from the **RealSense ROS color topic** (not a USB webcam)
-- Ordinary questions (“what time is it?”, “what is the capital of Arizona?”) and robot skills (“what do you see?”, “scan for a cup”, “follow me”) go through OpenClaw, so installed skills such as `@agenticros/followme` work the same as in chat
+- Ordinary questions (“what time is it?”, “what is the capital of Arizona?”) go through a fast chat model. Robot skills (“what do you see?”, “scan for a cup”, “follow me”) go through OpenClaw, so installed skills such as `@agenticros/followme` work the same as in chat
 
 Head nods and shakes are omitted — most robots do not have a pivoting head.
 
@@ -91,7 +91,9 @@ Used for Whisper STT (default), optional OpenAI TTS, and presence/see vision whe
 
 ## Other LLMs
 
-Default `agentBackend` is `openclaw`. Voice turns go through `openclaw agent --agent main`, so the gateway’s configured model (OpenAI, Claude, local, …) and **all robot tools** are used. Change the OpenClaw model in gateway config — Jarvis does not need a second model setting.
+Default `agentBackend` is `openclaw`. Robot turns go through the OpenClaw agent so the gateway’s configured model and **all robot tools** are used. Everyday questions skip that agent and hit a fast chat model (`chatBackend`, default `openai` / `gpt-4o-mini`) so trivia answers in about a second instead of waiting on the full skill stack. Change the OpenClaw model in gateway config — Jarvis does not need a second OpenClaw model setting.
+
+Set `chatBackend` to `off` to send every voice turn through OpenClaw (the old behavior). Set it to `ollama` if you want the fast path local.
 
 ### Direct OpenAI
 
@@ -127,7 +129,7 @@ ollama pull qwen2.5:7b
 ollama pull qwen3-vl:2b
 ```
 
-Same limited robot tools as direct OpenAI (`see`, `scan_for`). For full AgenticROS skills, keep `agentBackend` as `openclaw` and point the **gateway** at Ollama instead.
+Same limited robot tools as direct OpenAI (`see`, `scan_for`). For full AgenticROS skills, keep `agentBackend` as `openclaw` and point the **gateway** at Ollama instead. Set `chatBackend` to `ollama` if you also want the fast trivia path to stay local.
 
 ## TTS
 
@@ -168,6 +170,7 @@ Use `cameraMessageType: "Image"` for uncompressed `sensor_msgs/Image`. Depth is 
 | `conversationWindowSec` | `60` | Seconds after speech when wake word is optional |
 | `autoStart` | `true` | Start listening when the gateway loads |
 | `agentBackend` | `openclaw` | `openclaw` \| `openai` \| `ollama` |
+| `chatBackend` | `openai` | Fast path for chitchat when `agentBackend` is `openclaw`. `openai` \| `ollama` \| `off` |
 | `openclawAgent` | `main` | OpenClaw agent id |
 | `sttProvider` / `sttModel` | `openai` / `whisper-1` | Speech-to-text |
 | `ttsProvider` / `ttsVoice` | `kokoro` / `am_fenrir` | Text-to-speech |
@@ -178,6 +181,7 @@ Use `cameraMessageType: "Image"` for uncompressed `sensor_msgs/Image`. Depth is 
 | `cameraTopic` | robot / RealSense default | Color image topic |
 | `cameraMessageType` | `CompressedImage` | `CompressedImage` or `Image` |
 | `micDevice` | system default | ALSA device for `arecord` (`JARVIS_MIC_DEVICE` also works) |
+| `vadSilenceMs` | `800` | Silence after speech before STT starts |
 | `muteWords` | go to sleep, that’s all, … | Sleep phrases |
 | `openaiApiKey` | (resolved) | Optional override |
 
@@ -190,7 +194,7 @@ Use `cameraMessageType: "Image"` for uncompressed `sensor_msgs/Image`. Depth is 
 | `src/keys.ts` | OpenAI / OpenClaw key resolution |
 | `src/voice/` | Mic, VAD, STT, TTS, wake word, listen loop |
 | `src/presence/` | RealSense person detect + greetings |
-| `src/agent/` | OpenClaw CLI/HTTP and direct LLM backends |
+| `src/agent/` | OpenClaw CLI/HTTP, fast chat, robot-intent routing, and direct LLM backends |
 | `soul.md` | Identity (`name`, `operator`, `character`) |
 
 ## Troubleshooting
@@ -202,6 +206,7 @@ Use `cameraMessageType: "Image"` for uncompressed `sensor_msgs/Image`. Depth is 
 - **No speech out** — install `aplay` / `paplay` (Linux) or use macOS `afplay`.
 - **Presence never greets** — confirm `config.robot.cameraTopic` matches RealSense (`.../color/image_raw/compressed` vs raw `Image`). Check OpenAI key or Ollama VLM.
 - **“Follow me” does nothing** — install `@agenticros/followme` and keep `agentBackend: "openclaw"`.
+- **Trivia is still slow** — everyday questions should log `Jarvis route: chat`. If you see `OpenClaw` on “capital of Arizona”, check that `chatBackend` is not `off` and that an OpenAI (or Ollama) key is available for the fast path.
 - **OpenClaw agent fails** — `openclaw` must be on `PATH`. HTTP fallback needs gateway `/v1/chat/completions` enabled, plus the gateway token in `~/.openclaw/openclaw.json`.
 
 ## License
