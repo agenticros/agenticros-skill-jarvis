@@ -19,17 +19,11 @@ export function registerSkill(
   const jarvis = getJarvisConfig(config);
 
   // If the gateway re-registers this plugin within the same process (e.g. a
-  // config reload) without restarting, initRuntime() below replaces the
-  // module-level runtime singleton. Anything still running against the old
-  // one (mic capture, presence timer) would become unreachable and leak
-  // forever, since getRuntime()/tryGetRuntime() only ever see the newest
-  // instance. Stop the previous instance first so its resources are freed.
+  // config reload / agent pre-warm) without restarting, initRuntime() below
+  // replaces the module-level runtime singleton. Stop the previous instance
+  // first so mic/presence don't leak — and await that stop before autoStart
+  // so we don't race two arecord processes on the same Pulse source.
   const previous = tryGetRuntime();
-  if (previous) {
-    void stopJarvis(previous).catch((e) =>
-      api.logger.warn(`Jarvis: failed to stop previous runtime on re-register: ${String(e)}`),
-    );
-  }
 
   const runtime = initRuntime(config, jarvis, context);
   api.logger.info(
@@ -49,9 +43,25 @@ export function registerSkill(
         await stopJarvis(runtime);
       },
     });
-  } else if (jarvis.autoStart) {
+  } else if (!jarvis.autoStart) {
     api.logger.warn(
       "Jarvis: OpenClaw registerService is unavailable; start with jarvis_control action start",
     );
   }
+
+  // OpenClaw may re-register skills during agent runtime pre-warm without
+  // calling service.start() again. Eager autoStart keeps the mic alive.
+  const boot = async () => {
+    if (previous) {
+      try {
+        await stopJarvis(previous);
+      } catch (e) {
+        api.logger.warn(`Jarvis: failed to stop previous runtime on re-register: ${String(e)}`);
+      }
+    }
+    if (jarvis.autoStart) {
+      await startJarvis(runtime);
+    }
+  };
+  void boot().catch((e) => api.logger.warn(`Jarvis: autoStart failed: ${String(e)}`));
 }
