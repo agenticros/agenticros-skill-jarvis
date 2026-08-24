@@ -50,16 +50,28 @@ export function registerSkill(
   }
 
   // OpenClaw may re-register skills during agent runtime pre-warm without
-  // calling service.start() again. Eager autoStart keeps the mic alive.
+  // calling service.start() again. Restart only when we replaced a live
+  // runtime — never on first register (that is service.start()'s job), and
+  // never during contract discovery (`sync-skill-tools.mjs` / AGENTICROS_SKILL_DISCOVERY),
+  // which would otherwise spawn arecord and hang the install forever.
+  const discovery =
+    process.env.AGENTICROS_SKILL_DISCOVERY === "1" ||
+    process.env.AGENTICROS_SKILL_DISCOVERY === "true";
+  const hasServiceApi = typeof api.registerService === "function";
+
   const boot = async () => {
+    if (discovery) return;
     if (previous) {
       try {
         await stopJarvis(previous);
       } catch (e) {
         api.logger.warn(`Jarvis: failed to stop previous runtime on re-register: ${String(e)}`);
       }
+      if (jarvis.autoStart) await startJarvis(runtime);
+      return;
     }
-    if (jarvis.autoStart) {
+    // First load with no registerService: start ourselves. Otherwise wait for service.start().
+    if (jarvis.autoStart && !hasServiceApi) {
       await startJarvis(runtime);
     }
   };
